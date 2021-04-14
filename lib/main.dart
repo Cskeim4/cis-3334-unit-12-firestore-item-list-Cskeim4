@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Sample code from https://github.com/pythonhubpy/YouTube/blob/Firebae-CRUD-Part-1/lib/main.dart#L19
 // video https://www.youtube.com/watch?v=SmmCMDSj8ZU&list=PLtr8DfMFkiJu0lr1OKTDaoj44g-GGnFsn&index=10&t=291s
 
-void main() {
+//This function is going to do something, then it will return in the future
+Future<void> main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
@@ -29,7 +34,88 @@ class FirebaseDemo extends StatefulWidget {
 class _FirebaseDemoState extends State<FirebaseDemo> {
   final TextEditingController _newItemTextField = TextEditingController();
 
-  List<String> itemList = [];
+  //Class level variables
+  //List<String> itemList = [];
+  final CollectionReference itemCollectionDB = FirebaseFirestore.instance.collection('ITEMS');
+
+  Widget nameInputWidget(){
+    return SizedBox(
+      width: MediaQuery.of(context).size.width / 1.7,
+      child: TextField(
+        controller: _newItemTextField,
+        style: TextStyle(fontSize: 22, color: Colors.black),
+        decoration: InputDecoration(
+          hintText: "Name",
+          hintStyle: TextStyle(fontSize: 22, color: Colors.black),
+        ),
+      ),
+    );
+  }
+
+  Widget addItemButtonWidget(){
+    return SizedBox(
+      child: ElevatedButton(
+          onPressed: () async {
+            setState(() {
+              //itemList.add(_newItemTextField.text);
+              itemCollectionDB.add({'item_name': _newItemTextField.text});
+              _newItemTextField.clear();
+            });
+          },
+          child: Text(
+            'Add Data',
+            style: TextStyle(fontSize: 20),
+          )),
+    );
+  }
+
+  //Create a separate widget function(non-void method)
+  Widget inputItemWidget(){
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        nameInputWidget(),
+        SizedBox(width: 10,),
+        addItemButtonWidget(),
+      ],
+    );
+  }
+
+  Widget itemTileWidget(snapshot,position){
+    return ListTile(
+      leading: Icon(Icons.check_box),
+      title: Text(snapshot.data.docs[position]['item_name']),
+      onTap: () {
+        setState(() {
+          print("You tapped on items $position");
+          //itemList.removeAt(position);
+          String itemId = snapshot.data.docs[position].id;
+          itemCollectionDB.doc(itemId).delete();
+        });
+      },
+    );
+  }
+
+  //Create a separate list widget function
+  Widget itemListWidget(){
+    return Expanded(
+    //
+        child:
+        StreamBuilder(stream: itemCollectionDB.snapshots(),
+            builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+              return ListView.builder(
+    //
+                itemCount: snapshot.data.docs.length,
+                itemBuilder: (BuildContext context, int position) {
+                  return Card(
+                    child: itemTileWidget(snapshot, position),
+                  );
+                }
+              );
+        })
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,59 +126,9 @@ class _FirebaseDemoState extends State<FirebaseDemo> {
           width: MediaQuery.of(context).size.width,
           child: Column(
             children: [
-            Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              SizedBox(
-                width: MediaQuery.of(context).size.width / 1.7,
-                child: TextField(
-                  controller: _newItemTextField,
-                  style: TextStyle(fontSize: 22, color: Colors.black),
-                  decoration: InputDecoration(
-                    hintText: "Name",
-                    hintStyle: TextStyle(fontSize: 22, color: Colors.black),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 10,
-              ),
-              SizedBox(
-                child: ElevatedButton(
-                    onPressed: () async {
-                      setState(() {
-                        itemList.add(_newItemTextField.text);
-                        _newItemTextField.clear();
-                      });
-                    },
-                    child: Text(
-                      'Add Data',
-                      style: TextStyle(fontSize: 20),
-                    )),
-              ),
-            ],
-          ),
+              inputItemWidget(),
               SizedBox(height: 40,),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: itemList.length,
-                  itemBuilder: (BuildContext context, int position) {
-                    return Card(
-                        child: ListTile(
-                          leading: Icon(Icons.check_box),
-                          title: Text(itemList[position]),
-                          onTap: () {
-                            setState(() {
-                              print("You tapped on items $position");
-                              itemList.removeAt(position);
-                            });
-                          },
-                        )
-                    );
-                  }
-                )
-              ),
+              itemListWidget(),
             ],
           ),
         ),
